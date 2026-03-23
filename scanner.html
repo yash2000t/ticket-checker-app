@@ -403,10 +403,30 @@
             if (overlay) overlay.classList.add('hidden');
 
             try {
-                // Keep first parameter strict to avoid html5-qrcode type crashes
-                await html5QrcodeScanner.start({ facingMode: { exact: "environment" } }, config, onScanSuccess);
+                // Request camera list securely
+                const devices = await Html5Qrcode.getCameras();
+                if (devices && devices.length > 0) {
+                    // Find the back/rear camera by label
+                    let backCamera = devices.find(d => /back|rear|environment/i.test(d.label));
+                    
+                    // If labels are empty or generic, mobile devices usually list the back camera last
+                    if (!backCamera) {
+                        backCamera = devices[devices.length - 1]; 
+                    }
+
+                    // Start scanner explicitly using the correct physical hardware device ID
+                    await html5QrcodeScanner.start(backCamera.id, config, onScanSuccess);
+                } else {
+                    throw new Error("No cameras found");
+                }
             } catch (err) {
-                 Swal.fire({ title: 'Camera Error', text: 'Please allow camera access in your browser settings.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
+                 console.error(err);
+                 // Ultimate fallback if direct hardware device selection fails
+                 try {
+                     await html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess);
+                 } catch (fallbackErr) {
+                     Swal.fire({ title: 'Camera Error', text: 'Please allow camera access in your browser settings.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
+                 }
             }
         }
 
