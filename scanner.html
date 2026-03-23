@@ -183,19 +183,17 @@
                 <span class="text-xs font-bold mt-1">Force Sync DB</span>
             </button>
 
-            <!-- Settings -->
+            <!-- Stats -->
             <button onclick="toggleSettings()" class="flex flex-col items-center gap-1 text-slate-400">
                 <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
                 </div>
-                <span class="text-xs font-semibold">Settings</span>
+                <span class="text-xs font-semibold">Stats</span>
             </button>
         </div>
 
-        <!-- Hidden Settings Box -->
+        <!-- Hidden Stats Box -->
         <div id="settingsBox" class="hidden px-6 pb-6 pt-2 transition-all duration-300">
-            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Google Apps Script URL</label>
-            <input type="url" id="gasUrl" placeholder="Paste Backend API URL Here" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 mb-2">
             
             <div class="flex justify-between items-center text-xs mt-4">
                 <span class="text-slate-400">Total Items in Cache: <span id="cacheCount" class="font-bold text-white">0</span></span>
@@ -206,7 +204,10 @@
         </div>
     </div>
 
-    <script>
+        // HARDCODE YOUR GOOGLE APPS SCRIPT URL HERE:
+        // Example: const GAS_URL = "https://script.google.com/macros/s/AKfy.../exec";
+        const GAS_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+
         // 1. Initialize Dexie DB
         const db = new Dexie("TicketDB");
         // Upgraded version 2 to flush old schema
@@ -226,8 +227,6 @@
                 updateStats();
             } else {
                 el.classList.add('hidden');
-                // Save URL whenever settings menu closes
-                localStorage.setItem('gasScannerUrl', document.getElementById('gasUrl').value.trim());
             }
         }
 
@@ -240,10 +239,9 @@
         }
 
         async function syncData() {
-            const url = document.getElementById('gasUrl').value.trim() || localStorage.getItem('gasScannerUrl');
-            if(!url) {
-                Swal.fire({ title: 'Setup Required', text: 'Enter GAS URL in Settings first!', icon: 'warning', background: '#1e293b', color: '#fff' });
-                toggleSettings();
+            const url = GAS_URL;
+            if(!url || url === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
+                Swal.fire({ title: 'Setup Required', text: 'Set GAS_URL code in scanner.html first!', icon: 'warning', background: '#1e293b', color: '#fff' });
                 return;
             }
 
@@ -311,9 +309,8 @@
 
         // 4. Scanner Core Logic
         async function startScanner() {
-            if (!document.getElementById('gasUrl').value && !localStorage.getItem('gasScannerUrl')) {
-                toggleSettings();
-                Swal.fire({ title: 'URL Missing', text: 'Please enter Apps Script URL to allow scanning updates.', icon: 'warning', background: '#1e293b', color: '#fff' });
+            if (!GAS_URL || GAS_URL === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
+                Swal.fire({ title: 'URL Missing', text: 'Please set Apps Script GAS_URL in code.', icon: 'warning', background: '#1e293b', color: '#fff' });
                 return;
             }
 
@@ -371,7 +368,7 @@
             }
 
             const ticketId = decodedText.trim();
-            const url = document.getElementById('gasUrl').value.trim() || localStorage.getItem('gasScannerUrl');
+            const url = GAS_URL;
 
             // 1. Check local Dexie DB instantly
             const ticket = await db.tickets.get({ Ticket_ID: ticketId });
@@ -468,10 +465,6 @@
 
         // Init Setup on Load
         document.addEventListener("DOMContentLoaded", () => {
-            const savedUrl = localStorage.getItem('gasScannerUrl');
-            if (savedUrl) {
-                document.getElementById('gasUrl').value = savedUrl;
-            }
             
             // Check status of db
             db.tickets.count().then(c => {

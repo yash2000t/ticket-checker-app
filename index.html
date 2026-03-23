@@ -109,12 +109,7 @@
                     </div>
 
                     <form id="ticketForm" class="space-y-6">
-                        <!-- GAS URL config -->
-                        <div class="p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 mb-6">
-                            <label class="block text-xs font-semibold text-yellow-400 uppercase tracking-wider mb-2">Setup Required - Google Apps Script URL</label>
-                            <input type="url" id="gasUrl" required placeholder="https://script.google.com/macros/s/.../exec" class="w-full input-glass rounded-lg px-4 py-3 text-sm" value="">
-                            <p class="text-xs text-yellow-200/60 mt-2">Paste your deployed Web App URL here before generating tickets.</p>
-                        </div>
+                        <!-- GAS URL is now hardcoded in the script below -->
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <!-- Name -->
@@ -209,13 +204,9 @@
     </main>
 
     <script>
-        // Load URL from local storage if exists
-        document.addEventListener("DOMContentLoaded", () => {
-            const savedUrl = localStorage.getItem('gasUrl');
-            if (savedUrl) {
-                document.getElementById('gasUrl').value = savedUrl;
-            }
-        });
+        // HARDCODE YOUR GOOGLE APPS SCRIPT URL HERE:
+        // Example: const GAS_URL = "https://script.google.com/macros/s/AKfy.../exec";
+        const GAS_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
 
         // Function to generate random Ticket ID
         function generateTicketID() {
@@ -235,14 +226,11 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const gasUrl = document.getElementById('gasUrl').value.trim();
-            if (!gasUrl) {
-                Swal.fire({ title: 'Error!', text: 'Please enter the Google Apps Script URL first.', icon: 'error', background: '#1e293b', color: '#fff' });
+            const gasUrl = GAS_URL;
+            if (!gasUrl || gasUrl === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
+                Swal.fire({ title: 'Error!', text: 'Please set your Google Apps Script URL in the code (GAS_URL).', icon: 'error', background: '#1e293b', color: '#fff' });
                 return;
             }
-            
-            // Save URL to localStorage
-            localStorage.setItem('gasUrl', gasUrl);
 
             // Fetch form data
             const name = document.getElementById('name').value;
@@ -379,11 +367,6 @@
 
         function resetForm() {
             form.reset();
-            // keep the URL
-            const savedUrl = localStorage.getItem('gasUrl');
-            if (savedUrl) {
-                document.getElementById('gasUrl').value = savedUrl;
-            }
             
             document.getElementById('ticketEmptyState').classList.remove('hidden');
             document.getElementById('ticketResult').classList.add('hidden');
