@@ -319,15 +319,19 @@
                 html5QrcodeScanner = new Html5Qrcode("reader");
             }
             
-            if (html5QrcodeScanner.isScanning) {
+            if (html5QrcodeScanner.getState && html5QrcodeScanner.getState() === 2) {
                 return; // Already scanning
             }
 
             const config = { 
-                fps: 15, 
+                fps: 30, // Increased FPS for faster scanning
                 qrbox: { width: 250, height: 250 }, 
                 aspectRatio: 1.0,
-                formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
+                disableFlip: false, // Prevents scanning mirror images which wastes processing
+                formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true // Native barcode detector for high speed
+                }
             };
 
             document.getElementById('laserLine').classList.remove('hidden');
@@ -341,7 +345,7 @@
         }
 
         function stopScannerFast() {
-            if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+            if (html5QrcodeScanner && html5QrcodeScanner.getState() === 2 /* SCANNING */) {
                 html5QrcodeScanner.pause(true); // pause instead of stop for speed
                 document.getElementById('laserLine').classList.add('hidden');
                 document.getElementById('laserLine').classList.remove('animate-scan-line');
@@ -349,8 +353,10 @@
         }
 
         function resumeScannerFast() {
-             if (html5QrcodeScanner && html5QrcodeScanner.getState() === 2) { 
-                html5QrcodeScanner.resume();
+             if (html5QrcodeScanner) { 
+                if (html5QrcodeScanner.getState() === 3 /* PAUSED */) {
+                    html5QrcodeScanner.resume();
+                }
                 document.getElementById('laserLine').classList.remove('hidden');
                 document.getElementById('laserLine').classList.add('animate-scan-line');
                 isProcessing = false;
