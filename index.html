@@ -306,7 +306,7 @@
                         height: 400,
                         colorDark : "#000000",
                         colorLight : "#ffffff",
-                        correctLevel : QRCode.CorrectLevel.H
+                        correctLevel : QRCode.CorrectLevel.M
                     });
 
                     // Draw on Template Image
@@ -327,7 +327,9 @@
                             const qrSize = Math.round(W * 0.610); 
                             const qrX = Math.round((W - qrSize) / 2);
                             const qrY = Math.round(H * 0.183); 
+                            ctx.imageSmoothingEnabled = false;
                             ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+                            ctx.imageSmoothingEnabled = true;
                             
                             ctx.font = `bold ${Math.round(W*0.040)}px Arial, sans-serif`;
                             ctx.fillStyle = "#1e293b"; 
