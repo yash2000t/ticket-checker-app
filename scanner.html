@@ -324,21 +324,28 @@
             }
 
             const config = { 
-                fps: 30, // Increased FPS for faster scanning
-                qrbox: { width: 250, height: 250 }, 
-                aspectRatio: 1.0,
-                disableFlip: false, // Prevents scanning mirror images which wastes processing
+                fps: 60, // Maximum frame rate
+                // qrbox removed: Now scans the ENTIRE camera feed instead of just the center box!
+                disableFlip: true, // true improves performance further for rear cameras
                 formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
                 experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true // Native barcode detector for high speed
+                    useBarCodeDetectorIfSupported: true 
                 }
+            };
+
+            // Force low-resolution video feed (VGA). 
+            // Low res = 10x faster frame processing and easier focus
+            const mediaConstraints = {
+                facingMode: "environment",
+                width: { ideal: 640 },
+                height: { ideal: 480 }
             };
 
             document.getElementById('laserLine').classList.remove('hidden');
             document.getElementById('laserLine').classList.add('animate-scan-line');
 
             try {
-                await html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess);
+                await html5QrcodeScanner.start(mediaConstraints, config, onScanSuccess);
             } catch (err) {
                  Swal.fire({ title: 'Camera Error', text: 'Please allow camera access in your browser settings.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
             }
