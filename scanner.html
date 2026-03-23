@@ -330,22 +330,19 @@
                 formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
                 experimentalFeatures: {
                     useBarCodeDetectorIfSupported: true 
+                },
+                videoConstraints: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
                 }
-            };
-
-            // Force low-resolution video feed (VGA). 
-            // Low res = 10x faster frame processing and easier focus
-            const mediaConstraints = {
-                facingMode: "environment",
-                width: { ideal: 640 },
-                height: { ideal: 480 }
             };
 
             document.getElementById('laserLine').classList.remove('hidden');
             document.getElementById('laserLine').classList.add('animate-scan-line');
 
             try {
-                await html5QrcodeScanner.start(mediaConstraints, config, onScanSuccess);
+                // Keep first parameter strict to avoid html5-qrcode type crashes
+                await html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess);
             } catch (err) {
                  Swal.fire({ title: 'Camera Error', text: 'Please allow camera access in your browser settings.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
             }
