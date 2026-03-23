@@ -6,7 +6,7 @@
     <title>Ticket Admin Panel</title>
     
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Advent+Pro:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -80,6 +80,8 @@
     </style>
 </head>
 <body class="text-slate-200 antialiased flex flex-col min-h-screen">
+    <!-- Font Preload Hack -->
+    <div style="font-family: 'Advent Pro'; position: absolute; left: -9999px; visibility: hidden;">preload</div>
 
     <!-- Navbar -->
     <nav class="glass-panel sticky top-0 z-50 px-6 py-4 flex justify-between items-center border-b border-white/10">
@@ -326,6 +328,14 @@
                             const textY = Math.round(H * 0.865); 
                             ctx.fillText(name.toUpperCase(), textX, textY);
                             
+                            // Draw Training ID in Advent Pro, Black, right corner above QR
+                            ctx.font = `700 ${Math.round(W*0.045)}px 'Advent Pro', sans-serif`;
+                            ctx.fillStyle = "#000000"; 
+                            ctx.textAlign = "right";
+                            const idX = qrX + qrSize; 
+                            const idY = qrY - Math.round(H * 0.02);
+                            ctx.fillText(training_id, idX, idY);
+
                             const dlBtn = document.getElementById('downloadBtn');
                             dlBtn.onclick = () => {
                                 const safeName = name.replace(/[^a-zA-Z0-9]/g, '_');
