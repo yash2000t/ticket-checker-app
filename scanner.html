@@ -170,14 +170,21 @@
 
             <!-- Scan Step -->
             <div id="scanStep" class="hidden flex flex-col items-center text-center animate-fade-in-up">
-                <div class="mb-8 text-zinc-300">
+                <div class="mb-4 text-zinc-300">
                     <div class="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-blue-500/20">
                         <svg class="w-12 h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     </div>
                     <h2 class="text-3xl font-bold text-white mb-2">Ready to Scan</h2>
-                    <p class="text-sm opacity-80">Database is up to date. You can start scanning.</p>
+                    <p class="text-sm opacity-80">Please select your preferred camera below.</p>
                 </div>
-                <button onclick="startScanner()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full px-16 py-6 font-black text-2xl tracking-widest shadow-2xl shadow-blue-500/40 transform transition hover:scale-105 active:scale-95 animate-pulse">
+                
+                <div class="mb-6 w-full max-w-xs">
+                    <select id="cameraSelect" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500 appearance-none text-center font-medium">
+                        <option value="">Loading cameras...</option>
+                    </select>
+                </div>
+
+                <button onclick="startScanner()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full px-14 py-5 font-black text-xl tracking-widest shadow-2xl shadow-blue-500/40 transform transition hover:scale-105 active:scale-95 animate-pulse">
                     SCAN TICKET
                 </button>
             </div>
@@ -345,6 +352,34 @@
                     document.getElementById('syncStep').classList.add('hidden');
                     document.getElementById('scanStep').classList.remove('hidden');
                     document.getElementById('syncBtn').classList.remove('hidden'); // Reveal bottom button
+                    
+                    // Request camera permissions and populate dropdown
+                    try {
+                        const devices = await Html5Qrcode.getCameras();
+                        const cameraSelect = document.getElementById('cameraSelect');
+                        if (devices && devices.length > 0) {
+                            cameraSelect.innerHTML = '';
+                            devices.forEach(device => {
+                                const option = document.createElement('option');
+                                option.value = device.id;
+                                option.text = device.label || `Camera ${cameraSelect.length + 1}`;
+                                cameraSelect.appendChild(option);
+                            });
+                            
+                            // Pre-select the back camera
+                            const backCameraIndex = devices.findIndex(d => /back|rear|environment/i.test(d.label));
+                            if(backCameraIndex !== -1) {
+                                cameraSelect.selectedIndex = backCameraIndex;
+                            } else {
+                                cameraSelect.selectedIndex = devices.length - 1;
+                            }
+                        } else {
+                            cameraSelect.innerHTML = '<option value="">No cameras detected</option>';
+                        }
+                    } catch(err) {
+                        console.warn("Camera access denied or failed", err);
+                        document.getElementById('cameraSelect').innerHTML = '<option value="">Camera access required</option>';
+                    }
                 }
 
             } catch (err) {
@@ -403,21 +438,24 @@
             if (overlay) overlay.classList.add('hidden');
 
             try {
-                // Request camera list securely
-                const devices = await Html5Qrcode.getCameras();
-                if (devices && devices.length > 0) {
-                    // Find the back/rear camera by label
-                    let backCamera = devices.find(d => /back|rear|environment/i.test(d.label));
-                    
-                    // If labels are empty or generic, mobile devices usually list the back camera last
-                    if (!backCamera) {
-                        backCamera = devices[devices.length - 1]; 
-                    }
+                // Check if user manually selected a camera from the dropdown
+                const dropdown = document.getElementById('cameraSelect');
+                let selectedCameraId = dropdown ? dropdown.value : null;
 
-                    // Start scanner explicitly using the correct physical hardware device ID
-                    await html5QrcodeScanner.start(backCamera.id, config, onScanSuccess);
+                if (!selectedCameraId) {
+                    // Fallback to automatic finding if explicit dropdown isn't ready
+                    const devices = await Html5Qrcode.getCameras();
+                    if (devices && devices.length > 0) {
+                        let backCamera = devices.find(d => /back|rear|environment/i.test(d.label));
+                        if (!backCamera) { backCamera = devices[devices.length - 1]; }
+                        selectedCameraId = backCamera.id;
+                    }
+                }
+
+                if (selectedCameraId) {
+                    await html5QrcodeScanner.start(selectedCameraId, config, onScanSuccess);
                 } else {
-                    throw new Error("No cameras found");
+                    throw new Error("No cameras available");
                 }
             } catch (err) {
                  console.error(err);
