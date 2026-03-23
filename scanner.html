@@ -119,6 +119,13 @@
             -webkit-backdrop-filter: blur(12px);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
     </style>
 </head>
 <body class="antialiased flex flex-col h-screen">
@@ -143,6 +150,39 @@
     <!-- Camera Viewport container -->
     <div class="relative flex-grow flex items-center justify-center bg-zinc-900 overflow-hidden">
         
+        <!-- Startup UI Overlay -->
+        <div id="startupOverlay" class="absolute inset-0 z-40 bg-zinc-900/95 backdrop-blur-md flex flex-col items-center justify-center p-6 transition-all duration-500">
+            <!-- Sync Step -->
+            <div id="syncStep" class="flex flex-col items-center text-center animate-fade-in-up">
+                <div class="mb-8 text-zinc-300">
+                    <div class="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-emerald-500/20">
+                        <svg class="w-12 h-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white mb-2">Sync Database</h2>
+                    <p class="text-sm opacity-80">Download the latest tickets from the cloud to begin scanning</p>
+                </div>
+                <button onclick="syncData(true)" id="bigSyncBtn" class="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white rounded-2xl px-10 py-5 font-bold text-lg tracking-wide shadow-lg shadow-emerald-500/30 transform transition active:scale-95 flex items-center justify-center gap-3">
+                    <svg class="w-6 h-6 animate-spin hidden" id="bigSyncSpinner" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <svg class="w-6 h-6" id="bigSyncIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <span id="bigSyncText">FORCE SYNC NOW</span>
+                </button>
+            </div>
+
+            <!-- Scan Step -->
+            <div id="scanStep" class="hidden flex flex-col items-center text-center animate-fade-in-up">
+                <div class="mb-8 text-zinc-300">
+                    <div class="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-blue-500/20">
+                        <svg class="w-12 h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white mb-2">Ready to Scan</h2>
+                    <p class="text-sm opacity-80">Database is up to date. You can start scanning.</p>
+                </div>
+                <button onclick="startScanner()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full px-16 py-6 font-black text-2xl tracking-widest shadow-2xl shadow-blue-500/40 transform transition hover:scale-105 active:scale-95 animate-pulse">
+                    SCAN TICKET
+                </button>
+            </div>
+        </div>
+
         <!-- The HTML5 QRCode Element -->
         <div id="reader"></div>
 
@@ -176,7 +216,7 @@
             </button>
 
             <!-- Sync Button -->
-            <button onclick="syncData()" id="syncBtn" class="flex flex-col items-center gap-1 text-emerald-400">
+            <button onclick="syncData()" id="syncBtn" class="hidden flex flex-col items-center gap-1 text-emerald-400">
                 <div class="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center border-2 border-emerald-500/50 -mt-8 shadow-lg shadow-emerald-500/20 transform transition active:scale-95">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </div>
@@ -239,7 +279,7 @@
             document.getElementById('usedCount').innerText = used;
         }
 
-        async function syncData() {
+        async function syncData(isInitialSetup = false) {
             const url = GAS_URL;
             if(!url || url === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
                 Swal.fire({ title: 'Setup Required', text: 'Set GAS_URL code in scanner.html first!', icon: 'warning', background: '#1e293b', color: '#fff' });
@@ -249,6 +289,12 @@
             // UI feedback
             const btn = document.getElementById('syncBtn');
             btn.classList.add('animate-pulse');
+            
+            if(isInitialSetup) {
+                document.getElementById('bigSyncText').innerText = "SYNCING...";
+                document.getElementById('bigSyncIcon').classList.add('hidden');
+                document.getElementById('bigSyncSpinner').classList.remove('hidden');
+            }
             
             Swal.fire({
                 title: 'Downloading Database...',
@@ -293,6 +339,13 @@
                 });
 
                 updateStats();
+                
+                // Flow transition
+                if (isInitialSetup) {
+                    document.getElementById('syncStep').classList.add('hidden');
+                    document.getElementById('scanStep').classList.remove('hidden');
+                    document.getElementById('syncBtn').classList.remove('hidden'); // Reveal bottom button
+                }
 
             } catch (err) {
                 console.error(err);
@@ -305,6 +358,11 @@
                 });
             } finally {
                 btn.classList.remove('animate-pulse');
+                if(isInitialSetup) {
+                    document.getElementById('bigSyncText').innerText = "FORCE SYNC NOW";
+                    document.getElementById('bigSyncIcon').classList.remove('hidden');
+                    document.getElementById('bigSyncSpinner').classList.add('hidden');
+                }
             }
         }
 
@@ -339,6 +397,10 @@
 
             document.getElementById('laserLine').classList.remove('hidden');
             document.getElementById('laserLine').classList.add('animate-scan-line');
+
+            // Hide startup overlay to reveal camera
+            const overlay = document.getElementById('startupOverlay');
+            if (overlay) overlay.classList.add('hidden');
 
             try {
                 // Keep first parameter strict to avoid html5-qrcode type crashes
