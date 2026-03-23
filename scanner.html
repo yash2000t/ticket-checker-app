@@ -404,7 +404,7 @@
 
             try {
                 // Keep first parameter strict to avoid html5-qrcode type crashes
-                await html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess);
+                await html5QrcodeScanner.start({ facingMode: { exact: "environment" } }, config, onScanSuccess);
             } catch (err) {
                  Swal.fire({ title: 'Camera Error', text: 'Please allow camera access in your browser settings.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
             }
