@@ -353,33 +353,18 @@
                     document.getElementById('scanStep').classList.remove('hidden');
                     document.getElementById('syncBtn').classList.remove('hidden'); // Reveal bottom button
                     
-                    // Request camera permissions and populate dropdown
-                    try {
-                        const devices = await Html5Qrcode.getCameras();
-                        const cameraSelect = document.getElementById('cameraSelect');
-                        if (devices && devices.length > 0) {
-                            cameraSelect.innerHTML = '';
-                            devices.forEach(device => {
-                                const option = document.createElement('option');
-                                option.value = device.id;
-                                option.text = device.label || `Camera ${cameraSelect.length + 1}`;
-                                cameraSelect.appendChild(option);
-                            });
-                            
-                            // Pre-select the back camera
-                            const backCameraIndex = devices.findIndex(d => /back|rear|environment/i.test(d.label));
-                            if(backCameraIndex !== -1) {
-                                cameraSelect.selectedIndex = backCameraIndex;
-                            } else {
-                                cameraSelect.selectedIndex = devices.length - 1;
-                            }
-                        } else {
-                            cameraSelect.innerHTML = '<option value="">No cameras detected</option>';
-                        }
-                    } catch(err) {
-                        console.warn("Camera access denied or failed", err);
-                        document.getElementById('cameraSelect').innerHTML = '<option value="">Camera access required</option>';
-                    }
+                    // Populate camera dropdown with facingMode options (reliable on all devices)
+                    const cameraSelect = document.getElementById('cameraSelect');
+                    cameraSelect.innerHTML = '';
+                    const backOpt = document.createElement('option');
+                    backOpt.value = 'environment';
+                    backOpt.text = '📷 Back Camera (Recommended)';
+                    cameraSelect.appendChild(backOpt);
+                    const frontOpt = document.createElement('option');
+                    frontOpt.value = 'user';
+                    frontOpt.text = '🤳 Front Camera';
+                    cameraSelect.appendChild(frontOpt);
+                    cameraSelect.selectedIndex = 0; // Default to back camera
                 }
 
             } catch (err) {
@@ -432,80 +417,43 @@
             const overlay = document.getElementById('startupOverlay');
             if (overlay) overlay.classList.add('hidden');
 
-            // Step 1: Ensure camera permission is granted first
-            try {
-                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                // Stop the temp stream immediately — we just needed permission
-                tempStream.getTracks().forEach(track => track.stop());
-            } catch (permErr) {
-                console.error("Camera permission denied:", permErr);
-                Swal.fire({ title: 'Camera Access Denied', text: 'Please allow camera access in your browser settings and reload.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
-                return;
-            }
-
-            // Step 2: Determine camera source
+            // Get selected facing mode from dropdown (environment = back, user = front)
             const dropdown = document.getElementById('cameraSelect');
-            let selectedCameraId = dropdown ? dropdown.value : null;
-            let useFacingMode = false;
+            const facingMode = (dropdown && dropdown.value) ? dropdown.value : 'environment';
 
-            // Check if the selected option is "back" type by its label
-            if (selectedCameraId && dropdown) {
-                const selectedOption = dropdown.options[dropdown.selectedIndex];
-                const label = selectedOption ? selectedOption.text.toLowerCase() : '';
-                if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
-                    useFacingMode = true;
-                }
-            }
-
-            // Step 3: Start scanner with proper fallback chain
-            // Priority: facingMode (for back cam) → device ID → facingMode fallback → any camera
-            const startAttempts = [];
-
-            if (useFacingMode) {
-                // User wants back camera — use facingMode for reliable selection
-                startAttempts.push(() => 
-                    html5QrcodeScanner.start(
-                        { facingMode: { exact: "environment" } }, config, onScanSuccess
-                    )
+            try {
+                // Use facingMode directly — this is the ONLY reliable way on mobile
+                await html5QrcodeScanner.start(
+                    { facingMode: facingMode },
+                    config,
+                    onScanSuccess
                 );
-            }
-
-            if (selectedCameraId) {
-                // Try the specific device ID
-                startAttempts.push(() => 
-                    html5QrcodeScanner.start(selectedCameraId, config, onScanSuccess)
-                );
-            }
-
-            // Generic facingMode fallback (non-exact)
-            startAttempts.push(() => 
-                html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
-            );
-
-            // Last resort: enumerate cameras and pick last one (usually back on mobile)
-            startAttempts.push(async () => {
-                const devices = await Html5Qrcode.getCameras();
-                if (devices && devices.length > 0) {
-                    const cam = devices[devices.length - 1];
-                    return html5QrcodeScanner.start(cam.id, config, onScanSuccess);
-                }
-                throw new Error("No cameras found on this device");
-            });
-
-            // Try each method in order
-            let started = false;
-            for (const attempt of startAttempts) {
+            } catch (err) {
+                console.warn("facingMode start failed:", err);
+                // Fallback: try with exact constraint
                 try {
-                    await attempt();
-                    started = true;
-                    break;
-                } catch (err) {
-                    console.warn("Camera start attempt failed:", err.message || err);
+                    await html5QrcodeScanner.start(
+                        { facingMode: { exact: facingMode } },
+                        config,
+                        onScanSuccess
+                    );
+                } catch (err2) {
+                    console.warn("exact facingMode failed:", err2);
+                    // Last resort: enumerate devices and pick one
+                    try {
+                        const devices = await Html5Qrcode.getCameras();
+                        if (devices && devices.length > 0) {
+                            // For back camera pick the last device, for front pick the first
+                            const cam = facingMode === 'environment' ? devices[devices.length - 1] : devices[0];
+                            await html5QrcodeScanner.start(cam.id, config, onScanSuccess);
+                        } else {
+                            throw new Error('No cameras found');
+                        }
+                    } catch (err3) {
+                        console.error("All camera attempts failed:", err3);
+                        Swal.fire({ title: 'Camera Error', text: 'Could not start camera. Please allow camera access in browser settings and try again.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
+                    }
                 }
-            }
-
-            if (!started) {
-                Swal.fire({ title: 'Camera Error', text: 'Could not start any camera. Please check permissions and try again.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
             }
         }
 
