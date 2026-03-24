@@ -21,8 +21,8 @@ function getOrSetupSheet() {
   
   // Check if it's empty, and create headers automatically if needed
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["Ticket_ID", "Name", "Phone", "Training_ID", "Status", "Timestamp"]);
-    sheet.getRange("A1:F1").setFontWeight("bold");
+    sheet.appendRow(["Ticket_ID", "Name", "Phone", "Training_ID", "Status", "Timestamp", "Checkin_Time"]);
+    sheet.getRange("A1:G1").setFontWeight("bold");
   }
   
   return sheet;
@@ -116,7 +116,8 @@ function doPost(e) {
         phone,
         training_id,
         'Unused',
-        timestamp
+        timestamp,
+        ''  // Checkin_Time - empty until scanned
       ]);
 
       return ContentService.createTextOutput(JSON.stringify({"status": "success", "message": "Ticket added successfully"}))
@@ -135,7 +136,7 @@ function doPost(e) {
             alreadyUsed = true;
           } else {
             sheet.getRange(i + 1, 5).setValue('Used'); // Update Status column (E = 5)
-            sheet.getRange(i + 1, 6).setValue(new Date().toISOString()); // Update Timestamp (F = 6)
+            sheet.getRange(i + 1, 7).setValue(new Date().toISOString()); // Update Checkin_Time (G = 7)
           }
           found = true;
           break;

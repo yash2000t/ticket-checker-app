@@ -254,13 +254,13 @@
     <script>
         // HARDCODE YOUR GOOGLE APPS SCRIPT URL HERE:
         // Example: const GAS_URL = "https://script.google.com/macros/s/AKfy.../exec";
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbwMFrdw38CUJXr6IlsrMqKGALk3amUtobl78FourxMA7XylmxbcrdlVI0o9GcSFlAdD/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxCsddjnIA9neocLCfieZQKHSYDTF3llRtnScsRjFIfpwGg4keOJU3Fb8yc0T5Wywg/exec";
 
         // 1. Initialize Dexie DB
         const db = new Dexie("TicketDB");
-        // Upgraded version 2 to flush old schema
-        db.version(2).stores({
-            tickets: 'Ticket_ID, Name, Phone, Training_ID, Status, Timestamp'
+        // Upgraded version 3 to add Checkin_Time column
+        db.version(3).stores({
+            tickets: 'Ticket_ID, Name, Phone, Training_ID, Status, Timestamp, Checkin_Time'
         });
 
         // 2. Variables
