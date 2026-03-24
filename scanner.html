@@ -417,16 +417,11 @@
             }
 
             const config = { 
-                fps: 60, // Maximum frame rate
-                // qrbox removed: Now scans the ENTIRE camera feed instead of just the center box!
-                disableFlip: true, // true improves performance further for rear cameras
+                fps: 60,
+                disableFlip: true,
                 formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
                 experimentalFeatures: {
                     useBarCodeDetectorIfSupported: true 
-                },
-                videoConstraints: {
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
                 }
             };
 
@@ -437,34 +432,80 @@
             const overlay = document.getElementById('startupOverlay');
             if (overlay) overlay.classList.add('hidden');
 
+            // Step 1: Ensure camera permission is granted first
             try {
-                // Check if user manually selected a camera from the dropdown
-                const dropdown = document.getElementById('cameraSelect');
-                let selectedCameraId = dropdown ? dropdown.value : null;
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                // Stop the temp stream immediately — we just needed permission
+                tempStream.getTracks().forEach(track => track.stop());
+            } catch (permErr) {
+                console.error("Camera permission denied:", permErr);
+                Swal.fire({ title: 'Camera Access Denied', text: 'Please allow camera access in your browser settings and reload.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
+                return;
+            }
 
-                if (!selectedCameraId) {
-                    // Fallback to automatic finding if explicit dropdown isn't ready
-                    const devices = await Html5Qrcode.getCameras();
-                    if (devices && devices.length > 0) {
-                        let backCamera = devices.find(d => /back|rear|environment/i.test(d.label));
-                        if (!backCamera) { backCamera = devices[devices.length - 1]; }
-                        selectedCameraId = backCamera.id;
-                    }
-                }
+            // Step 2: Determine camera source
+            const dropdown = document.getElementById('cameraSelect');
+            let selectedCameraId = dropdown ? dropdown.value : null;
+            let useFacingMode = false;
 
-                if (selectedCameraId) {
-                    await html5QrcodeScanner.start(selectedCameraId, config, onScanSuccess);
-                } else {
-                    throw new Error("No cameras available");
+            // Check if the selected option is "back" type by its label
+            if (selectedCameraId && dropdown) {
+                const selectedOption = dropdown.options[dropdown.selectedIndex];
+                const label = selectedOption ? selectedOption.text.toLowerCase() : '';
+                if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
+                    useFacingMode = true;
                 }
-            } catch (err) {
-                 console.error(err);
-                 // Ultimate fallback if direct hardware device selection fails
-                 try {
-                     await html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess);
-                 } catch (fallbackErr) {
-                     Swal.fire({ title: 'Camera Error', text: 'Please allow camera access in your browser settings.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
-                 }
+            }
+
+            // Step 3: Start scanner with proper fallback chain
+            // Priority: facingMode (for back cam) → device ID → facingMode fallback → any camera
+            const startAttempts = [];
+
+            if (useFacingMode) {
+                // User wants back camera — use facingMode for reliable selection
+                startAttempts.push(() => 
+                    html5QrcodeScanner.start(
+                        { facingMode: { exact: "environment" } }, config, onScanSuccess
+                    )
+                );
+            }
+
+            if (selectedCameraId) {
+                // Try the specific device ID
+                startAttempts.push(() => 
+                    html5QrcodeScanner.start(selectedCameraId, config, onScanSuccess)
+                );
+            }
+
+            // Generic facingMode fallback (non-exact)
+            startAttempts.push(() => 
+                html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+            );
+
+            // Last resort: enumerate cameras and pick last one (usually back on mobile)
+            startAttempts.push(async () => {
+                const devices = await Html5Qrcode.getCameras();
+                if (devices && devices.length > 0) {
+                    const cam = devices[devices.length - 1];
+                    return html5QrcodeScanner.start(cam.id, config, onScanSuccess);
+                }
+                throw new Error("No cameras found on this device");
+            });
+
+            // Try each method in order
+            let started = false;
+            for (const attempt of startAttempts) {
+                try {
+                    await attempt();
+                    started = true;
+                    break;
+                } catch (err) {
+                    console.warn("Camera start attempt failed:", err.message || err);
+                }
+            }
+
+            if (!started) {
+                Swal.fire({ title: 'Camera Error', text: 'Could not start any camera. Please check permissions and try again.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
             }
         }
 
