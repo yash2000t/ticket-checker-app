@@ -407,6 +407,11 @@
                 formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
                 experimentalFeatures: {
                     useBarCodeDetectorIfSupported: true 
+                },
+                // Lower resolution = faster frame decode
+                videoConstraints: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
                 }
             };
 
@@ -494,71 +499,61 @@
             const ticket = await db.tickets.get({ Ticket_ID: ticketId });
 
             if (!ticket) {
-                // Ticket Not Found
                 await showResultModal('INVALID TICKET', `QR Code: ${ticketId}<br><br>Ticket NOT FOUND in Database. Sync DB if you suspect error.`, 'error', '#ef4444');
                 resumeScannerFast();
                 return;
             }
 
             if (ticket.Status === 'Used') {
-                // Ticket Already Used
                 await showResultModal('ACCESS DENIED', `Name: ${ticket.Name}<br>Training ID: ${ticket.Training_ID}<br><br><span class="text-xs">This ticket was ALREADY USED!</span>`, 'warning', '#f59e0b');
                 resumeScannerFast();
                 return;
             }
 
             if (ticket.Status === 'Unused') {
-                // 2. VERIFIED - Attempt to update Google Sheets immediately
-                // UI shows loading state in Swal
-                Swal.fire({
-                    title: 'Verifying...',
-                    html: `Connecting to Cloud...<br><b>${ticket.Name} (${ticket.Training_ID})</b>`,
-                    allowOutsideClick: false,
-                    didOpen: () => { Swal.showLoading() },
-                    background: '#0f172a',
-                    color: '#f8fafc'
+                // 2. INSTANT: Update Local Dexie DB FIRST (no waiting for cloud)
+                await db.tickets.update(ticketId, { 
+                    Status: 'Used', 
+                    Timestamp: new Date().toISOString() 
                 });
 
-                // Prepare POST Payload
+                // 3. Show success immediately with auto-close timer
+                Swal.fire({
+                    title: 'ACCESS GRANTED',
+                    html: `Name: ${ticket.Name}<br>Training ID: <b class="text-fuchsia-400">${ticket.Training_ID}</b><br><br><span class="text-xs text-white/50">ID: ${ticketId}</span>`,
+                    icon: 'success',
+                    confirmButtonColor: '#10b981',
+                    confirmButtonText: 'SCAN NEXT',
+                    timer: 1200,
+                    timerProgressBar: true,
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    customClass: {
+                        title: 'text-2xl font-bold tracking-widest text-emerald-400',
+                        htmlContainer: 'text-left text-base leading-relaxed',
+                        confirmButton: 'rounded-xl px-10 py-3 font-bold tracking-widest'
+                    }
+                }).then(() => {
+                    resumeScannerFast();
+                });
+
+                // 4. FIRE & FORGET: Send cloud update in background (non-blocking)
                 const payload = JSON.stringify({
                     action: 'updateStatus',
                     ticket_id: ticketId
                 });
 
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        body: payload,
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-                    });
-                    
-                    const result = await response.json();
-
-                    if (result.status === 'success') {
-                        // 3. Update Local Dexie DB as Used
-                        await db.tickets.update(ticketId, { 
-                            Status: 'Used', 
-                            Timestamp: new Date().toISOString() 
-                        });
-                        
-                        // Show Success
-                        await showResultModal('ACCESS GRANTED', `Name: ${ticket.Name}<br>Training ID: <b class="text-fuchsia-400">${ticket.Training_ID}</b><br><br><span class="text-xs text-white/50">ID: ${ticketId}</span>`, 'success', '#10b981');
-                    } else {
-                        // GAS said error (Maybe used in between syncs)
-                        await showResultModal('CONFLICT RECORD', result.message, 'warning', '#f59e0b');
-                        
-                        // Auto fix local DB if GAS says it's already used
-                        if(result.message.includes('already used')) {
-                            await db.tickets.update(ticketId, { Status: 'Used' });
-                        }
+                fetch(url, {
+                    method: 'POST',
+                    body: payload,
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                }).then(r => r.json()).then(result => {
+                    if (result.status !== 'success') {
+                        console.warn('Cloud sync issue:', result.message);
                     }
-
-                } catch (err) {
-                    console.error(err);
-                    await showResultModal('NETWORK ERROR', 'Could not save to Cloud. Verify internet connection.', 'error', '#ef4444');
-                }
-                
-                resumeScannerFast();
+                }).catch(err => {
+                    console.error('Background cloud update failed:', err);
+                });
             }
         }
 
