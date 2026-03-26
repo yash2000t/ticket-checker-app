@@ -4,21 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner App</title>
-    
-    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: { sans: ['Outfit', 'sans-serif'] },
-                    animation: {
-                        'scan-line': 'scan 2.5s infinite linear',
-                        'ping-slow': 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
-                    },
+                    animation: { 'scan-line': 'scan 2.5s infinite linear' },
                     keyframes: {
                         scan: {
                             '0%': { transform: 'translateY(0)', opacity: '0' },
@@ -31,128 +24,36 @@
             }
         }
     </script>
-
-    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
-    <!-- QR Code Scanner -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-
-    <!-- Dexie.js (Local DB) -->
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-
     <style>
-        body {
-            background-color: #000;
-            color: #fff;
-            overflow: hidden; /* Prevent scrolling on mobile scanner */
-        }
-        
-        #reader {
-            width: 100%;
-            height: 100vh;
-            border-radius: 0;
-            border: none;
-            position: relative;
-        }
-
-        #reader video {
-            object-fit: cover;
-            width: 100% !important;
-            height: 100% !important;
-        }
-
-        /* Hide the default buttons created by html5-qrcode */
-        #reader__dashboard_section_csr span, #reader__dashboard_section_swaplink {
-            display: none !important;
-        }
-        
-        /* Overlay styling */
-        .camera-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        /* Four corners scan box */
-        .scan-box {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 250px;
-            height: 250px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); /* Dim background */
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        .scan-box::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            border: 4px solid #3b82f6;
-            border-radius: 20px;
-            clip-path: polygon(0 0, 20% 0, 20% 100%, 0 100%, 0 20%, 100% 20%, 100% 100%, 80% 100%, 80% 0, 100% 0);
-            pointer-events: none;
-        }
-
-        /* Scanning laser */
-        .laser {
-            width: 100%;
-            height: 2px;
-            background: #3b82f6;
-            box-shadow: 0 0 10px 2px rgba(59, 130, 246, 0.8);
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 20;
-            pointer-events: none;
-        }
-        
-        /* Settings Glass Panel */
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-            animation: fadeInUp 0.5s ease-out forwards;
-        }
+        body { background-color: #000; color: #fff; overflow: hidden; }
+        #reader { width: 100%; height: 100vh; border-radius: 0; border: none; position: relative; }
+        #reader video { object-fit: cover; width: 100% !important; height: 100% !important; }
+        #reader__dashboard_section_csr span, #reader__dashboard_section_swaplink { display: none !important; }
+        .camera-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 10; }
+        .scan-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 250px; height: 250px; border: 2px solid rgba(255,255,255,0.2); border-radius: 20px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); overflow: hidden; pointer-events: none; }
+        .scan-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 4px solid #3b82f6; border-radius: 20px; clip-path: polygon(0 0, 20% 0, 20% 100%, 0 100%, 0 20%, 100% 20%, 100% 100%, 80% 100%, 80% 0, 100% 0); pointer-events: none; }
+        .laser { width: 100%; height: 2px; background: #3b82f6; box-shadow: 0 0 10px 2px rgba(59,130,246,0.8); position: absolute; top: 0; left: 0; z-index: 20; pointer-events: none; }
+        .glass-panel { background: rgba(15,23,42,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.1); }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
     </style>
 </head>
 <body class="antialiased flex flex-col h-screen">
-
-    <!-- Header Overlay -->
     <div class="absolute top-0 left-0 right-0 p-4 z-50 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
         <div class="flex items-center gap-2">
             <div class="text-2xl">📱</div>
             <h1 class="text-lg font-bold">Fast<span class="text-blue-500">Scan</span></h1>
         </div>
-        
-        <!-- Status indicator -->
         <div id="syncStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold">
-            <span class="relative flex h-2 w-2">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-            </span>
+            <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span></span>
             Not Synced
         </div>
     </div>
-
-    <!-- Camera Viewport container -->
     <div class="relative flex-grow flex items-center justify-center bg-zinc-900 overflow-hidden">
-        
-        <!-- Startup UI Overlay -->
         <div id="startupOverlay" class="absolute inset-0 z-40 bg-zinc-900/95 backdrop-blur-md flex flex-col items-center justify-center p-6 transition-all duration-500">
-            <!-- Sync Step -->
             <div id="syncStep" class="flex flex-col items-center text-center animate-fade-in-up">
                 <div class="mb-8 text-zinc-300">
                     <div class="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-emerald-500/20">
@@ -167,8 +68,6 @@
                     <span id="bigSyncText">FORCE SYNC NOW</span>
                 </button>
             </div>
-
-            <!-- Scan Step -->
             <div id="scanStep" class="hidden flex flex-col items-center text-center animate-fade-in-up">
                 <div class="mb-4 text-zinc-300">
                     <div class="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-blue-500/20">
@@ -177,23 +76,17 @@
                     <h2 class="text-3xl font-bold text-white mb-2">Ready to Scan</h2>
                     <p class="text-sm opacity-80">Please select your preferred camera below.</p>
                 </div>
-                
                 <div class="mb-6 w-full max-w-xs">
                     <select id="cameraSelect" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500 appearance-none text-center font-medium">
                         <option value="">Loading cameras...</option>
                     </select>
                 </div>
-
                 <button onclick="startScanner()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full px-14 py-5 font-black text-xl tracking-widest shadow-2xl shadow-blue-500/40 transform transition hover:scale-105 active:scale-95 animate-pulse">
                     SCAN TICKET
                 </button>
             </div>
         </div>
-
-        <!-- The HTML5 QRCode Element -->
         <div id="reader"></div>
-
-        <!-- Custom overlay to make it look like a pro scanner -->
         <div class="camera-overlay">
             <div class="scan-box">
                 <div class="laser hidden" id="laserLine"></div>
@@ -202,35 +95,24 @@
                 <p class="text-white/80 font-medium text-sm tracking-widest drop-shadow-md">ALIGN QR CODE WITHIN FRAME</p>
             </div>
         </div>
-
     </div>
-
-    <!-- Bottom Controls & Settings -->
     <div class="glass-panel z-50 absolute bottom-0 left-0 right-0 rounded-t-3xl pb-safe">
-        
-        <!-- Pull up handle indicator -->
         <div class="w-full flex justify-center pt-3 pb-2 cursor-pointer" onclick="toggleSettings()">
             <div class="w-12 h-1.5 bg-white/20 rounded-full"></div>
         </div>
-        
         <div class="px-6 py-4 flex justify-between items-center">
-            
             <button onclick="startScanner()" id="startBtn" class="flex flex-col items-center gap-1 text-blue-400">
                 <div class="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 </div>
                 <span class="text-xs font-semibold">Start Camera</span>
             </button>
-
-            <!-- Sync Button -->
             <button onclick="syncData()" id="syncBtn" class="hidden flex flex-col items-center gap-1 text-emerald-400">
                 <div class="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center border-2 border-emerald-500/50 -mt-8 shadow-lg shadow-emerald-500/20 transform transition active:scale-95">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </div>
                 <span class="text-xs font-bold mt-1">Force Sync DB</span>
             </button>
-
-            <!-- Stats -->
             <button onclick="toggleSettings()" class="flex flex-col items-center gap-1 text-slate-400">
                 <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
@@ -238,45 +120,29 @@
                 <span class="text-xs font-semibold">Stats</span>
             </button>
         </div>
-
-        <!-- Hidden Stats Box -->
         <div id="settingsBox" class="hidden px-6 pb-6 pt-2 transition-all duration-300">
-            
             <div class="flex justify-between items-center text-xs mt-4">
                 <span class="text-slate-400">Total Items in Cache: <span id="cacheCount" class="font-bold text-white">0</span></span>
                 <span class="text-slate-400">Total Used: <span id="usedCount" class="font-bold text-blue-400">0</span></span>
             </div>
-            
             <a href="index.html" class="block w-full text-center mt-6 py-3 rounded-xl bg-white/10 text-sm font-medium hover:bg-white/20 transition-colors">Go to Admin Panel (PC)</a>
         </div>
     </div>
-
     <script>
-        // HARDCODE YOUR GOOGLE APPS SCRIPT URL HERE:
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxCsddjnIA9neocLCfieZQKHSYDTF3llRtnScsRjFIfpwGg4keOJU3Fb8yc0T5Wywg/exec";
 
-        // 1. Initialize Dexie DB
         const db = new Dexie("TicketDB");
-        db.version(3).stores({
-            tickets: 'Ticket_ID, Name, Phone, Training_ID, Status, Timestamp, Checkin_Time'
-        });
+        db.version(3).stores({ tickets: 'Ticket_ID, Name, Phone, Training_ID, Status, Timestamp, Checkin_Time' });
 
-        // 2. Variables
-        let html5QrcodeScanner;
+        let html5QrcodeScanner = null;
         let isProcessing = false;
 
-        // Settings Toggler
         function toggleSettings() {
             const el = document.getElementById('settingsBox');
-            if(el.classList.contains('hidden')) {
-                el.classList.remove('hidden');
-                updateStats();
-            } else {
-                el.classList.add('hidden');
-            }
+            if (el.classList.contains('hidden')) { el.classList.remove('hidden'); updateStats(); }
+            else { el.classList.add('hidden'); }
         }
 
-        // 3. Database Syncing Engine
         async function updateStats() {
             const total = await db.tickets.count();
             const used = await db.tickets.where('Status').equals('Used').count();
@@ -285,93 +151,45 @@
         }
 
         async function syncData(isInitialSetup = false) {
-            const url = GAS_URL;
-            if(!url || url === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
-                Swal.fire({ title: 'Setup Required', text: 'Set GAS_URL code in scanner.html first!', icon: 'warning', background: '#1e293b', color: '#fff' });
+            if (!GAS_URL || GAS_URL === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
+                Swal.fire({ title: 'Setup Required', text: 'Set GAS_URL in scanner.html first!', icon: 'warning', background: '#1e293b', color: '#fff' });
                 return;
             }
-
-            const btn = document.getElementById('syncBtn');
-            btn.classList.add('animate-pulse');
-            
-            if(isInitialSetup) {
+            document.getElementById('syncBtn').classList.add('animate-pulse');
+            if (isInitialSetup) {
                 document.getElementById('bigSyncText').innerText = "SYNCING...";
                 document.getElementById('bigSyncIcon').classList.add('hidden');
                 document.getElementById('bigSyncSpinner').classList.remove('hidden');
             }
-            
-            Swal.fire({
-                title: 'Downloading Database...',
-                text: 'Preparing offline cache. Please wait.',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading() },
-                background: '#0f172a',
-                color: '#f8fafc'
-            });
-
+            Swal.fire({ title: 'Downloading Database...', text: 'Preparing offline cache. Please wait.', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, background: '#0f172a', color: '#f8fafc' });
             try {
-                const response = await fetch(`${url}?action=getTickets`);
+                const response = await fetch(`${GAS_URL}?action=getTickets`);
                 const data = await response.json();
-                
                 if (data.error) throw new Error(data.error);
-
                 await db.tickets.clear();
-                if(data.length > 0) {
-                    await db.tickets.bulkAdd(data);
-                }
-
+                if (data.length > 0) await db.tickets.bulkAdd(data);
                 const indicator = document.getElementById('syncStatus');
-                indicator.innerHTML = `
-                    <span class="relative flex h-2 w-2">
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    Database Synced
-                `;
+                indicator.innerHTML = `<span class="relative flex h-2 w-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> Database Synced`;
                 indicator.classList.remove('bg-white/10');
                 indicator.classList.add('bg-emerald-500/20', 'text-emerald-400');
-                
-                Swal.fire({
-                    title: 'Sync Complete!',
-                    text: `${data.length} tickets securely downloaded.`,
-                    icon: 'success',
-                    timer: 1500,
-                    showConfirmButton: false,
-                    background: '#0f172a',
-                    color: '#f8fafc'
-                });
-
+                Swal.fire({ title: 'Sync Complete!', text: `${data.length} tickets securely downloaded.`, icon: 'success', timer: 1500, showConfirmButton: false, background: '#0f172a', color: '#f8fafc' });
                 updateStats();
-                
                 if (isInitialSetup) {
                     document.getElementById('syncStep').classList.add('hidden');
                     document.getElementById('scanStep').classList.remove('hidden');
                     document.getElementById('syncBtn').classList.remove('hidden');
-                    
                     const cameraSelect = document.getElementById('cameraSelect');
                     cameraSelect.innerHTML = '';
-                    const backOpt = document.createElement('option');
-                    backOpt.value = 'environment';
-                    backOpt.text = '📷 Back Camera (Recommended)';
-                    cameraSelect.appendChild(backOpt);
-                    const frontOpt = document.createElement('option');
-                    frontOpt.value = 'user';
-                    frontOpt.text = '🤳 Front Camera';
-                    cameraSelect.appendChild(frontOpt);
+                    const backOpt = document.createElement('option'); backOpt.value = 'environment'; backOpt.text = '📷 Back Camera (Recommended)'; cameraSelect.appendChild(backOpt);
+                    const frontOpt = document.createElement('option'); frontOpt.value = 'user'; frontOpt.text = '🤳 Front Camera'; cameraSelect.appendChild(frontOpt);
                     cameraSelect.selectedIndex = 0;
                 }
-
             } catch (err) {
                 console.error(err);
-                Swal.fire({
-                    title: 'Sync Failed',
-                    text: 'Could not fetch tickets. Ensure URL is correct and deployed as web app.',
-                    icon: 'error',
-                    background: '#0f172a',
-                    color: '#f8fafc'
-                });
+                Swal.fire({ title: 'Sync Failed', text: 'Could not fetch tickets. Ensure URL is correct and deployed as web app.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
             } finally {
-                btn.classList.remove('animate-pulse');
-                if(isInitialSetup) {
+                document.getElementById('syncBtn').classList.remove('animate-pulse');
+                if (isInitialSetup) {
                     document.getElementById('bigSyncText').innerText = "FORCE SYNC NOW";
                     document.getElementById('bigSyncIcon').classList.remove('hidden');
                     document.getElementById('bigSyncSpinner').classList.add('hidden');
@@ -379,87 +197,81 @@
             }
         }
 
-        // 4. Scanner Core Logic — SPEED OPTIMIZED
+        // ─── SCANNER ──────────────────────────────────────────────────────────────────
+
+        function getScanConfig() {
+            return {
+                fps: 30,
+                qrbox: { width: 250, height: 250 },   // Only decode center box = faster, no resolution drop
+                disableFlip: true,
+                formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            };
+        }
+
+        // Always destroy + recreate the scanner instance before each start attempt.
+        // A failed start() leaves the instance in a broken state; calling start() again on it
+        // always throws — that is the root cause of the "Camera Error" on retry.
+        async function resetScanner() {
+            if (html5QrcodeScanner) {
+                try {
+                    const s = html5QrcodeScanner.getState();
+                    if (s === 2 || s === 3) await html5QrcodeScanner.stop();
+                } catch (_) {}
+                html5QrcodeScanner = null;
+            }
+            html5QrcodeScanner = new Html5Qrcode("reader");
+        }
+
         async function startScanner() {
             if (!GAS_URL || GAS_URL === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
                 Swal.fire({ title: 'URL Missing', text: 'Please set Apps Script GAS_URL in code.', icon: 'warning', background: '#1e293b', color: '#fff' });
                 return;
             }
+            if (html5QrcodeScanner && html5QrcodeScanner.getState() === 2) return; // already running
 
-            if (!html5QrcodeScanner) {
-                html5QrcodeScanner = new Html5Qrcode("reader");
-            }
-            
-            if (html5QrcodeScanner.getState && html5QrcodeScanner.getState() === 2) {
-                return; // Already scanning
-            }
-
-            // Get selected facing mode BEFORE building config
             const dropdown = document.getElementById('cameraSelect');
             const facingMode = (dropdown && dropdown.value) ? dropdown.value : 'environment';
 
-            // KEY CHANGE: qrbox limits the PROCESSING AREA to 250×250px center region only.
-            // This means the library decodes a tiny crop instead of the full frame — huge speed boost.
-            // Resolution is NOT dropped; the video stream stays at full 1280×720.
-            const config = { 
-                fps: 30,                              // 30fps is sufficient; 60fps wastes CPU with no gain
-                qrbox: { width: 250, height: 250 },   // Only decode center box — matches visual scan box
-                disableFlip: true,
-                formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true  // Use native BarcodeDetector API when available
-                }
-            };
-
-            // KEY CHANGE: Pass facingMode + high-res constraints together as ONE object.
-            // This prevents the bug where resolution hints caused the library to ignore facingMode
-            // and fall back to the front camera.
-            const cameraConstraint = {
-                facingMode: facingMode,
-                width:  { min: 640, ideal: 1280, max: 1920 },
-                height: { min: 480, ideal: 720,  max: 1080 }
-            };
-
+            const overlay = document.getElementById('startupOverlay');
+            if (overlay) overlay.classList.add('hidden');
             document.getElementById('laserLine').classList.remove('hidden');
             document.getElementById('laserLine').classList.add('animate-scan-line');
 
-            // Hide startup overlay to reveal camera
-            const overlay = document.getElementById('startupOverlay');
-            if (overlay) overlay.classList.add('hidden');
-
+            // Attempt 1 — { facingMode } object (standard html5-qrcode format)
+            // IMPORTANT: Do NOT add width/height here. html5-qrcode only accepts
+            // { facingMode } or a device ID string. Extra keys break the constraint
+            // and cause the camera error we just fixed.
             try {
-                // Attempt 1: Full constraint (facingMode + high-res) — best quality + correct camera
-                await html5QrcodeScanner.start(
-                    cameraConstraint,
-                    config,
-                    onScanSuccess
-                );
-            } catch (err) {
-                console.warn("Full constraint start failed:", err);
-                try {
-                    // Attempt 2: facingMode only — drop resolution hints but keep correct camera
-                    await html5QrcodeScanner.start(
-                        { facingMode: facingMode },
-                        config,
-                        onScanSuccess
-                    );
-                } catch (err2) {
-                    console.warn("facingMode-only start failed:", err2);
-                    try {
-                        // Attempt 3: Enumerate devices, pick by position
-                        const devices = await Html5Qrcode.getCameras();
-                        if (devices && devices.length > 0) {
-                            const cam = facingMode === 'environment' ? devices[devices.length - 1] : devices[0];
-                            await html5QrcodeScanner.start(cam.id, config, onScanSuccess);
-                        } else {
-                            throw new Error('No cameras found');
-                        }
-                    } catch (err3) {
-                        console.error("All camera attempts failed:", err3);
-                        Swal.fire({ title: 'Camera Error', text: 'Could not start camera. Please allow camera access in browser settings and try again.', icon: 'error', background: '#0f172a', color: '#f8fafc' });
-                    }
-                }
-            }
+                await resetScanner();
+                await html5QrcodeScanner.start({ facingMode: facingMode }, getScanConfig(), onScanSuccess);
+                return;
+            } catch (e1) { console.warn("Attempt 1 failed:", e1.message); }
+
+            // Attempt 2 — exact facingMode
+            try {
+                await resetScanner();
+                await html5QrcodeScanner.start({ facingMode: { exact: facingMode } }, getScanConfig(), onScanSuccess);
+                return;
+            } catch (e2) { console.warn("Attempt 2 failed:", e2.message); }
+
+            // Attempt 3 — enumerate real device IDs, pick by list position
+            try {
+                await resetScanner();
+                const devices = await Html5Qrcode.getCameras();
+                if (!devices || devices.length === 0) throw new Error("No cameras found");
+                const cam = facingMode === 'environment' ? devices[devices.length - 1] : devices[0];
+                await html5QrcodeScanner.start(cam.id, getScanConfig(), onScanSuccess);
+                return;
+            } catch (e3) { console.warn("Attempt 3 failed:", e3.message); }
+
+            // All failed
+            document.getElementById('laserLine').classList.add('hidden');
+            Swal.fire({
+                title: 'Camera Error',
+                html: 'Could not start the camera.<br><br>Please check:<br>• Camera permission is allowed in browser<br>• No other app is using the camera<br>• Page is served over HTTPS',
+                icon: 'error', background: '#0f172a', color: '#f8fafc'
+            });
         }
 
         function stopScannerFast() {
@@ -471,29 +283,19 @@
         }
 
         function resumeScannerFast() {
-             if (html5QrcodeScanner) { 
-                if (html5QrcodeScanner.getState() === 3) {
-                    html5QrcodeScanner.resume();
-                }
-                document.getElementById('laserLine').classList.remove('hidden');
-                document.getElementById('laserLine').classList.add('animate-scan-line');
-                isProcessing = false;
-            }
+            if (html5QrcodeScanner && html5QrcodeScanner.getState() === 3) html5QrcodeScanner.resume();
+            document.getElementById('laserLine').classList.remove('hidden');
+            document.getElementById('laserLine').classList.add('animate-scan-line');
+            isProcessing = false;
         }
 
         async function onScanSuccess(decodedText) {
             if (isProcessing) return;
             isProcessing = true;
-            
             stopScannerFast();
-
-            if (window.navigator && window.navigator.vibrate) {
-                window.navigator.vibrate(100);
-            }
+            if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(100);
 
             const ticketId = decodedText.trim();
-            const url = GAS_URL;
-
             const ticket = await db.tickets.get({ Ticket_ID: ticketId });
 
             if (!ticket) {
@@ -501,70 +303,42 @@
                 resumeScannerFast();
                 return;
             }
-
             if (ticket.Status === 'Used') {
                 await showResultModal('ACCESS DENIED', `Name: ${ticket.Name}<br>Training ID: ${ticket.Training_ID}<br><br><span class="text-xs">This ticket was ALREADY USED!</span>`, 'warning', '#f59e0b');
                 resumeScannerFast();
                 return;
             }
-
             if (ticket.Status === 'Unused') {
-                Swal.fire({
-                    title: 'Verifying...',
-                    html: `Connecting to Cloud...<br><b>${ticket.Name} (${ticket.Training_ID})</b>`,
-                    allowOutsideClick: false,
-                    didOpen: () => { Swal.showLoading() },
-                    background: '#0f172a',
-                    color: '#f8fafc'
-                });
-
-                const payload = JSON.stringify({
-                    action: 'updateStatus',
-                    ticket_id: ticketId
-                });
-
+                Swal.fire({ title: 'Verifying...', html: `Connecting to Cloud...<br><b>${ticket.Name} (${ticket.Training_ID})</b>`, allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, background: '#0f172a', color: '#f8fafc' });
                 try {
-                    const response = await fetch(url, {
+                    const response = await fetch(GAS_URL, {
                         method: 'POST',
-                        body: payload,
+                        body: JSON.stringify({ action: 'updateStatus', ticket_id: ticketId }),
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' }
                     });
-                    
                     const result = await response.json();
-
                     if (result.status === 'success') {
-                        await db.tickets.update(ticketId, { 
-                            Status: 'Used', 
-                            Timestamp: new Date().toISOString() 
-                        });
-                        
+                        await db.tickets.update(ticketId, { Status: 'Used', Timestamp: new Date().toISOString() });
                         await showResultModal('ACCESS GRANTED', `Name: ${ticket.Name}<br>Training ID: <b class="text-fuchsia-400">${ticket.Training_ID}</b><br><br><span class="text-xs text-white/50">ID: ${ticketId}</span>`, 'success', '#10b981');
                     } else {
                         await showResultModal('CONFLICT RECORD', result.message, 'warning', '#f59e0b');
-                        if(result.message.includes('already used')) {
-                            await db.tickets.update(ticketId, { Status: 'Used' });
-                        }
+                        if (result.message.includes('already used')) await db.tickets.update(ticketId, { Status: 'Used' });
                     }
-
                 } catch (err) {
                     console.error(err);
                     await showResultModal('NETWORK ERROR', 'Could not save to Cloud. Verify internet connection.', 'error', '#ef4444');
                 }
-                
                 resumeScannerFast();
             }
         }
 
         function showResultModal(title, html, icon, color) {
             return Swal.fire({
-                title: title,
-                html: html,
-                icon: icon,
+                title, html, icon,
                 confirmButtonColor: color,
                 confirmButtonText: 'SCAN NEXT',
-                background: '#0f172a',
-                color: '#f8fafc',
-                backdrop: `rgba(0,0,0,0.85)`,
+                background: '#0f172a', color: '#f8fafc',
+                backdrop: 'rgba(0,0,0,0.85)',
                 customClass: {
                     title: `text-2xl font-bold tracking-widest ${icon === 'success' ? 'text-emerald-400' : icon === 'error' ? 'text-red-400' : 'text-amber-400'}`,
                     htmlContainer: 'text-left text-base leading-relaxed',
@@ -573,18 +347,16 @@
             });
         }
 
-        // Init
         document.addEventListener("DOMContentLoaded", () => {
             db.tickets.count().then(c => {
-                if(c > 0) {
-                     const indicator = document.getElementById('syncStatus');
-                     indicator.innerHTML = `<span class="relative flex h-2 w-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> Cached (${c} rows)`;
-                     indicator.className = "flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md text-xs font-semibold bg-emerald-500/20 text-emerald-400";
+                if (c > 0) {
+                    const indicator = document.getElementById('syncStatus');
+                    indicator.innerHTML = `<span class="relative flex h-2 w-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span> Cached (${c} rows)`;
+                    indicator.className = "flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md text-xs font-semibold bg-emerald-500/20 text-emerald-400";
                 }
             });
             updateStats();
         });
-
     </script>
 </body>
 </html>
