@@ -253,12 +253,10 @@
 
     <script>
         // HARDCODE YOUR GOOGLE APPS SCRIPT URL HERE:
-        // Example: const GAS_URL = "https://script.google.com/macros/s/AKfy.../exec";
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxCsddjnIA9neocLCfieZQKHSYDTF3llRtnScsRjFIfpwGg4keOJU3Fb8yc0T5Wywg/exec";
 
         // 1. Initialize Dexie DB
         const db = new Dexie("TicketDB");
-        // Upgraded version 3 to add Checkin_Time column
         db.version(3).stores({
             tickets: 'Ticket_ID, Name, Phone, Training_ID, Status, Timestamp, Checkin_Time'
         });
@@ -293,7 +291,6 @@
                 return;
             }
 
-            // UI feedback
             const btn = document.getElementById('syncBtn');
             btn.classList.add('animate-pulse');
             
@@ -318,13 +315,11 @@
                 
                 if (data.error) throw new Error(data.error);
 
-                // Clear existing and rewrite local database for fresh copy
                 await db.tickets.clear();
                 if(data.length > 0) {
                     await db.tickets.bulkAdd(data);
                 }
 
-                // Update UI Indicator
                 const indicator = document.getElementById('syncStatus');
                 indicator.innerHTML = `
                     <span class="relative flex h-2 w-2">
@@ -347,13 +342,11 @@
 
                 updateStats();
                 
-                // Flow transition
                 if (isInitialSetup) {
                     document.getElementById('syncStep').classList.add('hidden');
                     document.getElementById('scanStep').classList.remove('hidden');
-                    document.getElementById('syncBtn').classList.remove('hidden'); // Reveal bottom button
+                    document.getElementById('syncBtn').classList.remove('hidden');
                     
-                    // Populate camera dropdown with facingMode options (reliable on all devices)
                     const cameraSelect = document.getElementById('cameraSelect');
                     cameraSelect.innerHTML = '';
                     const backOpt = document.createElement('option');
@@ -364,7 +357,7 @@
                     frontOpt.value = 'user';
                     frontOpt.text = '🤳 Front Camera';
                     cameraSelect.appendChild(frontOpt);
-                    cameraSelect.selectedIndex = 0; // Default to back camera
+                    cameraSelect.selectedIndex = 0;
                 }
 
             } catch (err) {
@@ -386,7 +379,7 @@
             }
         }
 
-        // 4. Scanner Core Logic
+        // 4. Scanner Core Logic — SPEED OPTIMIZED
         async function startScanner() {
             if (!GAS_URL || GAS_URL === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
                 Swal.fire({ title: 'URL Missing', text: 'Please set Apps Script GAS_URL in code.', icon: 'warning', background: '#1e293b', color: '#fff' });
@@ -401,13 +394,30 @@
                 return; // Already scanning
             }
 
+            // Get selected facing mode BEFORE building config
+            const dropdown = document.getElementById('cameraSelect');
+            const facingMode = (dropdown && dropdown.value) ? dropdown.value : 'environment';
+
+            // KEY CHANGE: qrbox limits the PROCESSING AREA to 250×250px center region only.
+            // This means the library decodes a tiny crop instead of the full frame — huge speed boost.
+            // Resolution is NOT dropped; the video stream stays at full 1280×720.
             const config = { 
-                fps: 60,
+                fps: 30,                              // 30fps is sufficient; 60fps wastes CPU with no gain
+                qrbox: { width: 250, height: 250 },   // Only decode center box — matches visual scan box
                 disableFlip: true,
                 formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
                 experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true 
+                    useBarCodeDetectorIfSupported: true  // Use native BarcodeDetector API when available
                 }
+            };
+
+            // KEY CHANGE: Pass facingMode + high-res constraints together as ONE object.
+            // This prevents the bug where resolution hints caused the library to ignore facingMode
+            // and fall back to the front camera.
+            const cameraConstraint = {
+                facingMode: facingMode,
+                width:  { min: 640, ideal: 1280, max: 1920 },
+                height: { min: 480, ideal: 720,  max: 1080 }
             };
 
             document.getElementById('laserLine').classList.remove('hidden');
@@ -417,33 +427,28 @@
             const overlay = document.getElementById('startupOverlay');
             if (overlay) overlay.classList.add('hidden');
 
-            // Get selected facing mode from dropdown (environment = back, user = front)
-            const dropdown = document.getElementById('cameraSelect');
-            const facingMode = (dropdown && dropdown.value) ? dropdown.value : 'environment';
-
             try {
-                // Use facingMode directly — this is the ONLY reliable way on mobile
+                // Attempt 1: Full constraint (facingMode + high-res) — best quality + correct camera
                 await html5QrcodeScanner.start(
-                    { facingMode: facingMode },
+                    cameraConstraint,
                     config,
                     onScanSuccess
                 );
             } catch (err) {
-                console.warn("facingMode start failed:", err);
-                // Fallback: try with exact constraint
+                console.warn("Full constraint start failed:", err);
                 try {
+                    // Attempt 2: facingMode only — drop resolution hints but keep correct camera
                     await html5QrcodeScanner.start(
-                        { facingMode: { exact: facingMode } },
+                        { facingMode: facingMode },
                         config,
                         onScanSuccess
                     );
                 } catch (err2) {
-                    console.warn("exact facingMode failed:", err2);
-                    // Last resort: enumerate devices and pick one
+                    console.warn("facingMode-only start failed:", err2);
                     try {
+                        // Attempt 3: Enumerate devices, pick by position
                         const devices = await Html5Qrcode.getCameras();
                         if (devices && devices.length > 0) {
-                            // For back camera pick the last device, for front pick the first
                             const cam = facingMode === 'environment' ? devices[devices.length - 1] : devices[0];
                             await html5QrcodeScanner.start(cam.id, config, onScanSuccess);
                         } else {
@@ -458,8 +463,8 @@
         }
 
         function stopScannerFast() {
-            if (html5QrcodeScanner && html5QrcodeScanner.getState() === 2 /* SCANNING */) {
-                html5QrcodeScanner.pause(true); // pause instead of stop for speed
+            if (html5QrcodeScanner && html5QrcodeScanner.getState() === 2) {
+                html5QrcodeScanner.pause(true);
                 document.getElementById('laserLine').classList.add('hidden');
                 document.getElementById('laserLine').classList.remove('animate-scan-line');
             }
@@ -467,7 +472,7 @@
 
         function resumeScannerFast() {
              if (html5QrcodeScanner) { 
-                if (html5QrcodeScanner.getState() === 3 /* PAUSED */) {
+                if (html5QrcodeScanner.getState() === 3) {
                     html5QrcodeScanner.resume();
                 }
                 document.getElementById('laserLine').classList.remove('hidden');
@@ -477,12 +482,11 @@
         }
 
         async function onScanSuccess(decodedText) {
-            if (isProcessing) return; // Prevent multiple scans
+            if (isProcessing) return;
             isProcessing = true;
             
             stopScannerFast();
 
-            // Vibrate phone for tactile feedback (if supported)
             if (window.navigator && window.navigator.vibrate) {
                 window.navigator.vibrate(100);
             }
@@ -490,26 +494,21 @@
             const ticketId = decodedText.trim();
             const url = GAS_URL;
 
-            // 1. Check local Dexie DB instantly
             const ticket = await db.tickets.get({ Ticket_ID: ticketId });
 
             if (!ticket) {
-                // Ticket Not Found
                 await showResultModal('INVALID TICKET', `QR Code: ${ticketId}<br><br>Ticket NOT FOUND in Database. Sync DB if you suspect error.`, 'error', '#ef4444');
                 resumeScannerFast();
                 return;
             }
 
             if (ticket.Status === 'Used') {
-                // Ticket Already Used
                 await showResultModal('ACCESS DENIED', `Name: ${ticket.Name}<br>Training ID: ${ticket.Training_ID}<br><br><span class="text-xs">This ticket was ALREADY USED!</span>`, 'warning', '#f59e0b');
                 resumeScannerFast();
                 return;
             }
 
             if (ticket.Status === 'Unused') {
-                // 2. VERIFIED - Attempt to update Google Sheets immediately
-                // UI shows loading state in Swal
                 Swal.fire({
                     title: 'Verifying...',
                     html: `Connecting to Cloud...<br><b>${ticket.Name} (${ticket.Training_ID})</b>`,
@@ -519,7 +518,6 @@
                     color: '#f8fafc'
                 });
 
-                // Prepare POST Payload
                 const payload = JSON.stringify({
                     action: 'updateStatus',
                     ticket_id: ticketId
@@ -535,19 +533,14 @@
                     const result = await response.json();
 
                     if (result.status === 'success') {
-                        // 3. Update Local Dexie DB as Used
                         await db.tickets.update(ticketId, { 
                             Status: 'Used', 
                             Timestamp: new Date().toISOString() 
                         });
                         
-                        // Show Success
                         await showResultModal('ACCESS GRANTED', `Name: ${ticket.Name}<br>Training ID: <b class="text-fuchsia-400">${ticket.Training_ID}</b><br><br><span class="text-xs text-white/50">ID: ${ticketId}</span>`, 'success', '#10b981');
                     } else {
-                        // GAS said error (Maybe used in between syncs)
                         await showResultModal('CONFLICT RECORD', result.message, 'warning', '#f59e0b');
-                        
-                        // Auto fix local DB if GAS says it's already used
                         if(result.message.includes('already used')) {
                             await db.tickets.update(ticketId, { Status: 'Used' });
                         }
@@ -562,7 +555,6 @@
             }
         }
 
-        // Beautiful Custom Modal for scan results
         function showResultModal(title, html, icon, color) {
             return Swal.fire({
                 title: title,
@@ -570,11 +562,9 @@
                 icon: icon,
                 confirmButtonColor: color,
                 confirmButtonText: 'SCAN NEXT',
-                background: '#0f172a', /* Dark slate */
+                background: '#0f172a',
                 color: '#f8fafc',
-                backdrop: `
-                    rgba(0,0,0,0.85)
-                `,
+                backdrop: `rgba(0,0,0,0.85)`,
                 customClass: {
                     title: `text-2xl font-bold tracking-widest ${icon === 'success' ? 'text-emerald-400' : icon === 'error' ? 'text-red-400' : 'text-amber-400'}`,
                     htmlContainer: 'text-left text-base leading-relaxed',
@@ -583,10 +573,8 @@
             });
         }
 
-        // Init Setup on Load
+        // Init
         document.addEventListener("DOMContentLoaded", () => {
-            
-            // Check status of db
             db.tickets.count().then(c => {
                 if(c > 0) {
                      const indicator = document.getElementById('syncStatus');
@@ -594,7 +582,6 @@
                      indicator.className = "flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md text-xs font-semibold bg-emerald-500/20 text-emerald-400";
                 }
             });
-            
             updateStats();
         });
 
